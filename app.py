@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 from readability import Document
-import pdfkit
+from weasyprint import HTML
 import io
 import zipfile
 import re
@@ -67,14 +67,17 @@ if st.session_state.url_list:
                         response = requests.get(url, headers=headers, timeout=10)
                         response.raise_for_status()
 
+                        # Extract text using readability
                         doc = Document(response.text)
                         title = doc.title()
                         cleaned_html = doc.summary()
 
+                        # Clean the title for safe file saving
                         safe_title = re.sub(r'[^\w\s-]', '', title).strip().replace(' ', '_')
                         if not safe_title:
                             safe_title = f"article_{i+1}"
 
+                        # Base HTML template
                         full_html = f"""
                         <!DOCTYPE html>
                         <html>
@@ -93,21 +96,11 @@ if st.session_state.url_list:
                         </body>
                         </html>
                         """
-
-                        options = {
-                            'page-size': 'A4',
-                            'margin-top': '0.75in',
-                            'margin-right': '0.75in',
-                            'margin-bottom': '0.75in',
-                            'margin-left': '0.75in',
-                            'encoding': "UTF-8",
-                            'no-outline': None,
-                            'enable-local-file-access': None
-                        }
                         
-                        # Cloud Ready! No paths needed.
-                        pdf_bytes = pdfkit.from_string(full_html, False, options=options)
+                        # Generate PDF using WeasyPrint
+                        pdf_bytes = HTML(string=full_html, base_url=url).write_pdf()
 
+                        # Write directly to the ZIP file buffer
                         zip_file.writestr(f"{safe_title}.pdf", pdf_bytes)
                         st.write(f"✅ Success: `{safe_title}.pdf`")
 
